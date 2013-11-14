@@ -13,14 +13,9 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA */
 
-#include <my_global.h>
-#include <sql_priv.h>
-#include <stdlib.h>
-#include <ctype.h>
 #include <mysql_version.h>
 #include <mysql/plugin.h>
-#include "my_sys.h"                             // my_write, my_malloc
-#include "m_string.h"                           // strlen
+
 #include "mysqld.h"
 #include "handler.h"
 #include "sql_plugin.h"                         // st_plugin_int
@@ -45,27 +40,12 @@ public:
 
   int create(const char *name, TABLE *form, HA_CREATE_INFO *create_info) {
     return 1;
-/*
-    if (form->s->tmp_table == NO_TMP_TABLE && !form->s->system) {
-     return 10086;
-    }
-    return ha_myisam::create(name, form, create_info);
-*/
   }
 };
 
 
 static handler* new_myisam_create(handlerton *hton, TABLE_SHARE *table, MEM_ROOT *mem_root) {
   return new (mem_root) ha_myisam_wrap(hton, table);
-  /*
-  handler* ret;
-  if (table_share->tmp_table == NO_TMP_TABLE && !table_share->system) {
-    return NULL;
-  }
-        myisam_create_handler
-  ret = (*old_myisam_create)(hton, table_share, mem_root);
-  return ret;
-  */
 }
 
 
