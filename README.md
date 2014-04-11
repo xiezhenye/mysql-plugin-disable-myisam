@@ -10,7 +10,7 @@ first, compile the plugin and install in to plugin dir
 
     cp -r src /path/to/mysql-src/plugin/disable_myisam
     cd /path/to/mysql-src
-    cmake .
+    cmake . -DBUILD_CONFIG=mysql_release
     cd plugin/disable_myisam
     make
     make install
