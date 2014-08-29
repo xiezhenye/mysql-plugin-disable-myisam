@@ -20,6 +20,12 @@
 #include "handler.h"
 #include "sql_plugin.h"                         // st_plugin_int
 #include "table.h"
+
+// Fix when building for MySQL 5.5
+#if !defined( SQL_STRING_INCLUDED )
+#include "sql_string.h"
+#endif
+
 #include "../storage/myisam/ha_myisam.h"
 /*
   Disable __attribute__() on non-gcc compilers.
