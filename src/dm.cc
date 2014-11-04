@@ -22,7 +22,7 @@
 #include "table.h"
 
 // Fix when building for MySQL 5.5
-#if !defined( SQL_STRING_INCLUDED )
+#ifndef SQL_STRING_INCLUDED
 #include "sql_string.h"
 #endif
 
@@ -84,6 +84,7 @@ static int disable_myisam_plugin_init(void *p)
 */
 static int disable_myisam_plugin_deinit(void *p)
 {
+  DBUG_ENTER("disable_myisam_plugin_deinit");
   myisam_hton->create = old_myisam_create;
   DBUG_RETURN(0);
 }
