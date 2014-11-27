@@ -35,10 +35,11 @@
 #endif
 
 /*
-  Name of default MySQL database (containing users, permissions, etc.)
+  Name of default MySQL databases (containing users, permissions, etc.)
   Note that compare in create function is done case-sensitive
 */
 #define DEFAULT_MYSQL_DATABASE_NAME "mysql" 
+#define DEFAULT_TMP_DATABASE_NAME "tmp"
 
 
 static handler* (*old_myisam_create)(handlerton*, TABLE_SHARE*, MEM_ROOT*);
@@ -54,20 +55,27 @@ public:
     DBUG_ENTER("ha_myisam_wrap::create");
 
     // avoid breaking manipulations in database containing users, permissions, etc.
-    char *buf = (char *)malloc((strlen(DEFAULT_MYSQL_DATABASE_NAME)+3)*sizeof(char));
+    char *buf1 = (char *)malloc((strlen(DEFAULT_MYSQL_DATABASE_NAME)+3)*sizeof(char));
+    char *buf2 = (char *)malloc((strlen(DEFAULT_TMP_DATABASE_NAME)+3)*sizeof(char));
 
     // we will be looking for /database/ as name looks like ./database/table
-    strcpy(buf, "/");
-    strcat(buf, DEFAULT_MYSQL_DATABASE_NAME);
-    strcat(buf, "/");
+    // mysql database
+    strcpy(buf1, "/");
+    strcat(buf1, DEFAULT_MYSQL_DATABASE_NAME);
+    strcat(buf1, "/");
+    // tmp database (mysql_upgrade uses it)
+    strcpy(buf2, "/");
+    strcat(buf2, DEFAULT_TMP_DATABASE_NAME);
+    strcat(buf2, "/");
 
-    // disallow creation of table if not in DEFAULT_MYSQL_DATABASE_NAME
-    if (!strstr(name, buf)) { return 1; }
+    // disallow creation of table if not DEFAULT_MYSQL_DATABASE_NAME or DEFAULT_TMP_DATABASE_NAME
+    if (!(strstr(name, buf1) || strstr(name, buf2))) { return 1; }
 
     // free memory
-    free(buf);
+    free(buf1);
+    free(buf2);
 
-    // allow table creation
+    // allow table creation if DEFAULT_MYSQL_DATABASE_NAME or DEFAULT_TMP_DATABASE_NAME
     int ret = ha_myisam::create(name, form, create_info);
 
     // not sure about this one
