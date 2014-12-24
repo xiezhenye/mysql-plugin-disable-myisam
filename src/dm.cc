@@ -35,6 +35,18 @@
 #endif
 
 
+static my_bool allow_sys_value;
+
+static MYSQL_SYSVAR_BOOL(allow_sys, allow_sys_value,
+  PLUGIN_VAR_RQCMDARG,
+  "Allow creating MYISAM tables in mysql and tmp databases",
+  NULL, NULL, 0);
+
+static struct st_mysql_sys_var* system_variables[]= {
+  MYSQL_SYSVAR(allow_sys),
+  NULL
+};
+
 static handler* (*old_myisam_create)(handlerton*, TABLE_SHARE*, MEM_ROOT*);
 
 
@@ -45,7 +57,18 @@ public:
   }
 
   int create(const char *name, TABLE *form, HA_CREATE_INFO *create_info) {
-    return 1;
+    const char *MYSQL_DATABASE_PREFIX = "/mysql/";
+    const char *TMP_DATABASE_PREFIX   ="/tmp/";
+    const int FAIL = 1;
+    if (allow_sys_value) {
+      if (!(strstr(name, MYSQL_DATABASE_PREFIX) || strstr(name, TMP_DATABASE_PREFIX))) {
+        DBUG_RETURN(FAIL);
+      }
+      // delegate to the origin function
+      int ret = ha_myisam::create(name, form, create_info);
+      DBUG_RETURN(ret);
+    }
+    DBUG_RETURN(FAIL);
   }
 };
 
@@ -109,7 +132,7 @@ mysql_declare_plugin(disable_myisam)
   disable_myisam_plugin_deinit, /* Plugin Deinit */
   0x0100 /* 1.0 */,
   NULL,                       /* status variables                */
-  NULL,                       /* system variables                */
+  system_variables,                       /* system variables                */
   NULL,                       /* config options                  */
   0,                          /* flags                           */
 }
