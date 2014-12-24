@@ -49,10 +49,9 @@ static struct st_mysql_sys_var* system_variables[]= {
 
 static handler* (*old_myisam_create)(handlerton*, TABLE_SHARE*, MEM_ROOT*);
 
-
-class ha_myisam_wrap :public ha_myisam {
+class ha_myisam_disable_myisam_wrapper :public ha_myisam {
 public:
-  ha_myisam_wrap(handlerton *hton, TABLE_SHARE *table_arg)
+  ha_myisam_disable_myisam_wrapper(handlerton *hton, TABLE_SHARE *table_arg)
     :ha_myisam(hton, table_arg) {
   }
 
@@ -60,6 +59,7 @@ public:
     const char *MYSQL_DATABASE_PREFIX = "/mysql/";
     const char *TMP_DATABASE_PREFIX   ="/tmp/";
     const int FAIL = 1;
+    DBUG_ENTER("ha_myisam_disable_myisam_wrapper::create");
     if (allow_sys_value) {
       if (!(strstr(name, MYSQL_DATABASE_PREFIX) || strstr(name, TMP_DATABASE_PREFIX))) {
         DBUG_RETURN(FAIL);
@@ -74,9 +74,8 @@ public:
 
 
 static handler* new_myisam_create(handlerton *hton, TABLE_SHARE *table, MEM_ROOT *mem_root) {
-  return new (mem_root) ha_myisam_wrap(hton, table);
+  return new (mem_root) ha_myisam_disable_myisam_wrapper(hton, table);
 }
-
 
 /*
   SYNOPSIS
