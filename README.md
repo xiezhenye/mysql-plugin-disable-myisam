@@ -28,4 +28,32 @@ MYISAM tables can not be created now.
     ) ENGINE=MyISAM;
     ERROR 1030 (HY000): Got error 1 from storage engine
     
+There is also a global variable disable_myisam_allow_sys to control whether creating MYISAM table in system databases like mysql or tmp is allowed.
+
+    mysql> show variables like '%allow_sys%';
+    +--------------------------+-------+
+    | Variable_name            | Value |
+    +--------------------------+-------+
+    | disable_myisam_allow_sys | OFF   |
+    +--------------------------+-------+
+    1 row in set (0.00 sec)
     
+    mysql> use mysql;
+    Database changed
+    mysql> create table x(id int primary key)engine=myisam;
+    ERROR 1030 (HY000): Got error 1 from storage engine
+    mysql> set global disable_myisam_allow_sys=1;
+    Query OK, 0 rows affected (0.00 sec)
+    
+    mysql> show variables like '%allow_sys%';
+    +--------------------------+-------+
+    | Variable_name            | Value |
+    +--------------------------+-------+
+    | disable_myisam_allow_sys | ON    |
+    +--------------------------+-------+
+    1 row in set (0.00 sec)
+
+    mysql> create table x(id int primary key)engine=myisam;
+    Query OK, 0 rows affected (0.00 sec)
+    
+
