@@ -55,5 +55,9 @@ There is also a global variable disable_myisam_allow_sys to control whether crea
 
     mysql> create table x(id int primary key)engine=myisam;
     Query OK, 0 rows affected (0.00 sec)
+    mysql> use test
+    Database changed
+    mysql> create table x(id int primary key)engine=myisam;
+    ERROR 1030 (HY000): Got error 1 from storage engine
     
 
