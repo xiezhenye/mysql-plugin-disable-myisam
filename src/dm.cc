@@ -47,7 +47,7 @@ static struct st_mysql_sys_var* system_variables[]= {
   NULL
 };
 
-static handler* (*old_myisam_create)(handlerton*, TABLE_SHARE*, MEM_ROOT*);
+static handler* (*old_myisam_create)(handlerton*, TABLE_SHARE*, MEM_ROOT*) = NULL;
 
 class ha_myisam_disable_myisam_wrapper :public ha_myisam {
 public:
@@ -88,8 +88,10 @@ static handler* new_myisam_create(handlerton *hton, TABLE_SHARE *table, MEM_ROOT
 static int disable_myisam_plugin_init(void *p)
 {
   DBUG_ENTER("disable_myisam_plugin_init");
-  old_myisam_create = myisam_hton->create;
-  myisam_hton->create = new_myisam_create;
+  if (myisam_hton->create != new_myisam_create) {
+    old_myisam_create = myisam_hton->create;
+    myisam_hton->create = new_myisam_create;
+  }
   DBUG_RETURN(0);
 }
 
@@ -107,7 +109,9 @@ static int disable_myisam_plugin_init(void *p)
 static int disable_myisam_plugin_deinit(void *p)
 {
   DBUG_ENTER("disable_myisam_plugin_deinit");
-  myisam_hton->create = old_myisam_create;
+  if (old_myisam_create != NULL) {
+    myisam_hton->create = old_myisam_create;
+  }
   DBUG_RETURN(0);
 }
 
