@@ -19,7 +19,7 @@ CAUTION: mysql plugins MUST be built using the same version of the source code a
     
 then, load the plugin into mysql
 
-    mysql> INSTALL PLUGIN DISABLE_MYISAM SONAME 'dm.so';
+    mysql> INSTALL PLUGIN DISABLE_MYISAM SONAME 'disable_myisam.so';
     
 MYISAM tables can not be created now. 
 
