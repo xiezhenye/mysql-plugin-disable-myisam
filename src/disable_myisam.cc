@@ -12,15 +12,17 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA */
+#define MYSQL_SERVER
 
 #include <mysql_version.h>
 #include <mysql/plugin.h>
-
 #include "mysqld.h"
 #include "handler.h"
 #include "sql_plugin.h"                         // st_plugin_int
-#include "table.h"
-
+#include "log.h"
+#include <set>
+//#include "sp.h"
+//#include "table_cache.h"
 // Fix when building for MySQL 5.5
 #ifndef SQL_STRING_INCLUDED
 #include "sql_string.h"
@@ -34,8 +36,15 @@
 #define __attribute__(A)
 #endif
 
+class ha_myisam_disable_myisam_wrapper;
+static int disable_myisam_plugin_init(void *p);
+static int disable_myisam_plugin_deinit(void *p);
+static handler* new_myisam_create(handlerton *hton, TABLE_SHARE *table, MEM_ROOT *mem_root);
 
 static my_bool allow_sys_value;
+static handler* (*old_myisam_create)(handlerton*, TABLE_SHARE*, MEM_ROOT*) = NULL;
+static std::set<ha_myisam_disable_myisam_wrapper*> cur_handlers;
+
 
 static MYSQL_SYSVAR_BOOL(allow_sys, allow_sys_value,
   PLUGIN_VAR_RQCMDARG,
@@ -47,12 +56,17 @@ static struct st_mysql_sys_var* system_variables[]= {
   NULL
 };
 
-static handler* (*old_myisam_create)(handlerton*, TABLE_SHARE*, MEM_ROOT*) = NULL;
-
-class ha_myisam_disable_myisam_wrapper :public ha_myisam {
+class ha_myisam_disable_myisam_wrapper : public ha_myisam {
 public:
   ha_myisam_disable_myisam_wrapper(handlerton *hton, TABLE_SHARE *table_arg)
     :ha_myisam(hton, table_arg) {
+    sql_print_information("dm ctor");
+    cur_handlers.insert(this);
+  }
+
+  virtual ~ha_myisam_disable_myisam_wrapper() {
+    sql_print_information("dm dtor");
+    cur_handlers.erase(this);
   }
 
   int create(const char *name, TABLE *form, HA_CREATE_INFO *create_info) {
@@ -70,11 +84,15 @@ public:
     }
     DBUG_RETURN(FAIL);
   }
+  
+  TABLE *get_table() {
+    return table;
+  }
 };
 
-
 static handler* new_myisam_create(handlerton *hton, TABLE_SHARE *table, MEM_ROOT *mem_root) {
-  return new (mem_root) ha_myisam_disable_myisam_wrapper(hton, table);
+  handler *ret = new (mem_root) ha_myisam_disable_myisam_wrapper(hton, table);
+  return ret;
 }
 
 /*
@@ -95,7 +113,6 @@ static int disable_myisam_plugin_init(void *p)
   DBUG_RETURN(0);
 }
 
-
 /*
 
   SYNOPSIS
@@ -109,12 +126,30 @@ static int disable_myisam_plugin_init(void *p)
 static int disable_myisam_plugin_deinit(void *p)
 {
   DBUG_ENTER("disable_myisam_plugin_deinit");
+  /*
+   Hack handler's vtable to the origin ha_myisam.
+   Openned myisam tables after plugin loaded carries a handler point 
+   to an ha_myisam_disable_myisam_wrapper which will be unaccessable
+   after the plugin uninstalled and cause crash. 
+   While no myisam table is openned before the uninstall operation, 
+   crash also occurred because of uninstall operation will access the
+   mysql.plugin table.
+  */
+  handler *old = new ha_myisam(NULL, NULL); // just used to fetch vtable address
+  for (std::set<ha_myisam_disable_myisam_wrapper*>::iterator it = cur_handlers.begin(); it != cur_handlers.end(); ++it) {
+    if ((*it)->get_table()) {
+      void **vtn = (void**)(*it);
+      void **vto = (void**)old;
+      *vtn = *vto;
+    }
+  }
+  delete old;
+
   if (old_myisam_create != NULL) {
     myisam_hton->create = old_myisam_create;
   }
   DBUG_RETURN(0);
 }
-
 
 struct st_mysql_daemon disable_myisam_plugin=
 { MYSQL_DAEMON_INTERFACE_VERSION  };
