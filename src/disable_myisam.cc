@@ -43,6 +43,7 @@ static handler* new_myisam_create(handlerton *hton, TABLE_SHARE *table, MEM_ROOT
 
 static my_bool allow_sys_value;
 static handler* (*old_myisam_create)(handlerton*, TABLE_SHARE*, MEM_ROOT*) = NULL;
+static mysql_mutex_t LOCK_set;
 static std::set<ha_myisam_disable_myisam_wrapper*> cur_handlers;
 
 
@@ -60,13 +61,15 @@ class ha_myisam_disable_myisam_wrapper : public ha_myisam {
 public:
   ha_myisam_disable_myisam_wrapper(handlerton *hton, TABLE_SHARE *table_arg)
     :ha_myisam(hton, table_arg) {
-    sql_print_information("dm ctor");
+    mysql_mutex_lock(&LOCK_set);
     cur_handlers.insert(this);
+    mysql_mutex_unlock(&LOCK_set);
   }
 
   virtual ~ha_myisam_disable_myisam_wrapper() {
-    sql_print_information("dm dtor");
+    mysql_mutex_lock(&LOCK_set);
     cur_handlers.erase(this);
+    mysql_mutex_unlock(&LOCK_set);
   }
 
   int create(const char *name, TABLE *form, HA_CREATE_INFO *create_info) {
@@ -136,6 +139,7 @@ static int disable_myisam_plugin_deinit(void *p)
    mysql.plugin table.
   */
   handler *old = new ha_myisam(NULL, NULL); // just used to fetch vtable address
+  mysql_mutex_lock(&LOCK_set);
   for (std::set<ha_myisam_disable_myisam_wrapper*>::iterator it = cur_handlers.begin(); it != cur_handlers.end(); ++it) {
     if ((*it)->get_table()) {
       void **vtn = (void**)(*it);
@@ -143,6 +147,7 @@ static int disable_myisam_plugin_deinit(void *p)
       *vtn = *vto;
     }
   }
+  mysql_mutex_unlock(&LOCK_set);
   delete old;
 
   if (old_myisam_create != NULL) {
